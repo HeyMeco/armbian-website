@@ -327,6 +327,8 @@ export class Normalizer {
           !enrichment.boardConfigSlugs?.size || enrichment.boardConfigSlugs.has(slug)
             ? buildCommand(slug)
             : null,
+        instructions_url:
+          boardImages.find((img) => img.board_instructions)?.board_instructions || null,
         legacy_paths: this.getLegacyPaths(slug, enrichment.redirects),
         maintainers: boardMaintainers,
         kernel_branches: kernelBranches,

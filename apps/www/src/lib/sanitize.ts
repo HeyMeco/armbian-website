@@ -1,6 +1,11 @@
 import sanitizeHtml from 'sanitize-html';
 
-export function sanitizeCmsHtml(html: string): string {
+interface SanitizeOptions {
+  /** Open absolute http(s) links in a new tab with a safe `rel`. */
+  externalLinksInNewTab?: boolean;
+}
+
+export function sanitizeCmsHtml(html: string, options: SanitizeOptions = {}): string {
   return sanitizeHtml(html, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat([
       'img',
@@ -27,5 +32,16 @@ export function sanitizeCmsHtml(html: string): string {
       a: ['href', 'target', 'rel'],
     },
     allowedSchemes: ['https', 'mailto'],
+    transformTags: options.externalLinksInNewTab
+      ? {
+          a: (tagName, attribs) =>
+            /^https?:\/\//i.test(attribs['href'] ?? '')
+              ? {
+                  tagName,
+                  attribs: { ...attribs, target: '_blank', rel: 'noopener noreferrer' },
+                }
+              : { tagName, attribs },
+        }
+      : undefined,
   });
 }

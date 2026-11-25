@@ -111,6 +111,8 @@ export const BoardDetailSchema = BoardSummarySchema.extend({
   forum_url: z.string().url(),
   github_url: z.string().url().nullable(),
   build_command: z.string().nullable(),
+  /** Markdown install instructions from armbian.github.io/board-instructions, or null. */
+  instructions_url: z.string().url().nullable().default(null),
   legacy_paths: z.array(z.string()).default([]),
   maintainers: z.array(BoardMaintainerSchema).default([]),
   kernel_branches: z.array(KernelBranchInfoSchema).default([]),

@@ -146,3 +146,8 @@ export function boardForumUrl(slug: string): string {
 export function buildCommand(slug: string): string {
   return `./compile.sh BOARD=${slug} RELEASE=trixie BUILD_DESKTOP=no BUILD_MINIMAL=yes KERNEL_CONFIGURE=no`;
 }
+
+/** Source of a board's install instructions in armbian/armbian.github.io (for "edit" links). */
+export function boardInstructionsSourceUrl(slug: string): string {
+  return `${ARMBIAN_URLS.GITHUB_ORG}/armbian.github.io/blob/main/board-instructions/${slug}.md`;
+}

@@ -12,6 +12,7 @@ import {
   ARMBIAN_URLS,
   vendorLogoUrl,
   formatBytes,
+  boardInstructionsSourceUrl,
 } from '@armbian/config';
 import { ApiClientError } from '@armbian/api-client';
 import { DonationBanner } from '@/components/board/donation-banner';
@@ -19,7 +20,7 @@ import { BoardJsonLd } from '@/components/board/board-jsonld';
 import { BoardImage as BoardImageWithFallback } from '@/components/board/board-image';
 import { Link } from '@/i18n/navigation';
 import type { BoardSummary, Image as BoardImage } from '@armbian/schemas';
-import { Download, BookOpen, Code, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Download, BookOpen, Code, ArrowRight, ArrowLeft, ArrowDown } from 'lucide-react';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import type { Metadata } from 'next';
 import { BoardPageDownloads } from '@/components/board/board-page-downloads';
@@ -28,6 +29,7 @@ import { SiblingBoardsCarousel } from '@/components/board/sibling-boards-carouse
 import { getPayload } from 'payload';
 import config from '@payload-config';
 import { renderLexicalContent } from '@/lib/cms-lexical';
+import { loadBoardInstructions } from '@/lib/board-instructions';
 
 export const dynamic = 'force-dynamic';
 
@@ -181,10 +183,10 @@ export default async function BoardPage({ params }: Props) {
     throw err;
   }
 
-  // Sibling boards (for the "More from X" carousel) and the Payload flash
-  // guide both depend only on `board` and are independent — fire them in
-  // parallel to save a round trip on every page render.
-  const [siblingResult, flashGuideResult] = await Promise.allSettled([
+  // Sibling boards (for the "More from X" carousel), the repo install
+  // instructions and the Payload flash guide all depend only on `board` and
+  // are independent — fire them in parallel to save round trips.
+  const [siblingResult, instructionsResult, flashGuideResult] = await Promise.allSettled([
     api.getBoards({
       vendor: board.vendor_slug,
       sort: 'popularity',
@@ -192,6 +194,7 @@ export default async function BoardPage({ params }: Props) {
       // current board if it appears in the popularity ordering.
       limit: 13,
     }),
+    loadBoardInstructions(board.instructions_url),
     (async () => {
       const payload = await getPayload({ config });
       return payload.find({
@@ -211,8 +214,14 @@ export default async function BoardPage({ params }: Props) {
     siblingBoards = siblingResult.value.data.filter((b) => b.slug !== board.slug).slice(0, 12);
   }
 
+  // Install instructions from armbian/armbian.github.io/board-instructions are
+  // the source of truth. The CMS flash guide is only a fallback for boards
+  // that have no instructions in the repository yet.
+  const instructionsHtml =
+    instructionsResult.status === 'fulfilled' ? instructionsResult.value : null;
+
   let flashGuide: { title: string; content: string; prerequisites: string[] } | null = null;
-  if (flashGuideResult.status === 'fulfilled') {
+  if (!instructionsHtml && flashGuideResult.status === 'fulfilled') {
     const doc = flashGuideResult.value.docs[0];
     if (doc) {
       const prereqs = Array.isArray(doc.prerequisites)
@@ -381,13 +390,24 @@ export default async function BoardPage({ params }: Props) {
                   <span className="flex-1">{t('build_docs')}</span>
                   <ArrowRight size={12} strokeWidth={2} className="opacity-30 shrink-0" />
                 </a>
-                {flashGuide && (
-                  <FlashGuideModal
-                    title={flashGuide.title}
-                    content={flashGuide.content}
-                    prerequisites={flashGuide.prerequisites}
-                    buttonLabel={t('flash_guide')}
-                  />
+                {instructionsHtml ? (
+                  <a
+                    href="#instructions"
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-[rgb(var(--fg-2))] transition-colors hover:bg-[rgb(var(--bg-sub))] hover:text-[rgb(var(--fg))] border-t border-[rgb(var(--border)/0.3)]"
+                  >
+                    <BookOpen size={16} strokeWidth={1.5} className="opacity-50 shrink-0" />
+                    <span className="flex-1">{t('flash_guide')}</span>
+                    <ArrowDown size={12} strokeWidth={2} className="opacity-30 shrink-0" />
+                  </a>
+                ) : (
+                  flashGuide && (
+                    <FlashGuideModal
+                      title={flashGuide.title}
+                      content={flashGuide.content}
+                      prerequisites={flashGuide.prerequisites}
+                      buttonLabel={t('flash_guide')}
+                    />
+                  )
                 )}
               </div>
             </div>
@@ -403,6 +423,35 @@ export default async function BoardPage({ params }: Props) {
           locale={locale}
           boardGithubUrl={board.github_url ?? undefined}
         />
+
+        {instructionsHtml && (
+          <ScrollReveal>
+            <section id="instructions" className="mb-20 scroll-mt-16">
+              <div className="rounded-2xl border border-[rgb(var(--border)/0.5)] overflow-hidden bg-[rgb(var(--bg-el)/0.3)]">
+                <div className="flex items-center gap-3 px-6 py-5 border-b border-[rgb(var(--border)/0.3)]">
+                  <div className="w-10 h-10 rounded-xl bg-[rgb(var(--brand)/0.1)] flex items-center justify-center shrink-0">
+                    <BookOpen size={18} strokeWidth={2} stroke="rgb(var(--brand))" />
+                  </div>
+                  <h2 className="text-lg font-bold flex-1">{t('flash_guide')}</h2>
+                  <a
+                    href={boardInstructionsSourceUrl(board.slug)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-[rgb(var(--brand))] hover:underline inline-flex items-center gap-1.5 shrink-0"
+                  >
+                    <SiGithub size={14} />
+                    {t('github')}
+                  </a>
+                </div>
+                {/* instructionsHtml is sanitized in loadBoardInstructions() */}
+                <div
+                  className="px-6 py-6 prose prose-sm dark:prose-invert max-w-none prose-code:before:content-none prose-code:after:content-none"
+                  dangerouslySetInnerHTML={{ __html: instructionsHtml }}
+                />
+              </div>
+            </section>
+          </ScrollReveal>
+        )}
 
         {board.build_command && (
           <ScrollReveal>

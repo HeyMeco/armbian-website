@@ -15,6 +15,8 @@ export const RawImageAssetSchema = z.object({
   company_name: z.string(),
   company_website: z.string(),
   company_logo: z.string(),
+  /** Absolute URL of the board's install-instructions Markdown, or '' when none exists. */
+  board_instructions: z.string().optional(),
   armbian_version: z.string(),
   file_url: z.string(),
   file_url_asc: z.string(),
